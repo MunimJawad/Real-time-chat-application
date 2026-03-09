@@ -1,0 +1,38 @@
+cloudflared tunnel create django-tunnel
+Created tunnel django-tunnel with id a14cc4af-ec6d-4035-9742-455e1c4ba42e
+
+
+
+mj@mj:~/.cloudflared$ cloudflared tunnel create my-new-tunnel
+Tunnel credentials written to /home/mj/.cloudflared/2d578832-4f0e-4321-9b48-5c68effe697a.json. cloudflared chose this file based on where your origin certificate was found. Keep this file secret. To revoke these credentials, delete the tunnel.
+
+Created tunnel my-new-tunnel with id 2d578832-4f0e-4321-9b48-5c68effe697a
+
+
+1. Development Mode (Local Machine)
+
+If you're just developing and want to run your Django app locally (perhaps with Cloudflare Tunnel), follow these steps:
+
+1.1 Activate Virtual Environment (if using one):
+
+First, activate your virtual environment if you're using one. If you're not using a virtual environment, skip this step.
+
+source /path/to/your/virtualenv/bin/activate
+
+1.2 Run Django Development Server:
+
+Start the Django development server, binding it to 0.0.0.0 so it can be accessed externally (including through the Cloudflare Tunnel).
+
+python manage.py runserver 0.0.0.0:8000
+
+
+This command will start Django on port 8000, and it will be accessible via the public IP of your machine, or localhost.
+
+1.3 Run Cloudflare Tunnel (if exposing externally via Cloudflare):
+
+If you’re using Cloudflare Tunnel to expose the app to the internet, run the following command after you’ve created and configured the tunnel:
+
+cloudflared tunnel run <your-tunnel-id>
+
+
+Make sure that Cloudflare Tunnel is running and has the correct credentials and DNS settings to forward traffic to your local Django server

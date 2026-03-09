@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Room</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            justify-content: space-between;
+        }
+
+        h2 {
+            text-align: center;
+            margin: 20px 0;
+            color: #333;
+        }
+
+        /* Chat Box Styles */
+        #chat {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            max-height: 80vh;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #chat li {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-end;
+        }
+
+        .message {
+            background-color: #ffffff;
+            padding: 10px;
+            border-radius: 18px;
+            max-width: 70%;
+            font-size: 14px;
+            word-wrap: break-word;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .message .username {
+            font-weight: bold;
+            font-size: 14px;
+            color: #007bff;
+        }
+
+        .message .timestamp {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .message.user {
+            background-color: #dcf8c6;
+            align-self: flex-end;
+        }
+
+        .message.other {
+            background-color: #ffffff;
+            align-self: flex-start;
+        }
+
+        /* Input Area Styles */
+        .input-area {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background-color: #fff;
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+            margin-right: 10px;
+        }
+
+        .input-area button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .input-area button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Scrollbar Styles */
+        #chat::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #chat::-webkit-scrollbar-thumb {
+            background-color: #ccc;
+            border-radius: 10px;
+        }
+
+        #chat::-webkit-scrollbar-track {
+            background-color: #f1f1f1;
+        }
+
+        /* Footer to keep input at the bottom */
+        footer {
+            text-align: center;
+            font-size: 14px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Room: ----{{ room.id }} ----- {{ room.name }} ----({{ messages.count }})</h2>
+
+    <!-- Chat Messages -->
+    <ul id="chat">
+        {% for message in messages %}
+        <li class="{% if message.user.username == current_user.username %}user{% else %}other{% endif %}">
+            <div class="message">
+                <strong class="username">{{ message.user.username }}</strong>
+                <small class="timestamp">-- {{ message.timestamp }}</small>
+                <p>{{ message.content }}</p>
+            </div>
+        </li>
+        {% empty %}
+        <p>No messages yet</p>
+        {% endfor %}
+    </ul>
+
+    <!-- Input Area -->
+    <div class="input-area">
+        <input id="msgInput" placeholder="Type a message..." />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <footer>
+        ChatApp - 2026
+    </footer>
+
+    <script>
+        const socket = new WebSocket(`wss://${window.location.host}/ws/chat/{{ room.name }}/`)
+
+        socket.onopen = () => console.log("✅ Connected")
+        socket.onclose = () => console.log("❌ Disconnected")
+        socket.onerror = (e) => console.error("❌ WS Error", e)
+ 
+        socket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const li = document.createElement("li");
+            li.classList.add(data.user === '{{ current_user.username }}' ? 'user' : 'other');
+            li.innerHTML = `
+                <div class="message">
+                    <strong class="username">${data.user}</strong>
+                    <small class="timestamp">-- ${data.timestamp}</small>
+                    <p>${data.message}</p>
+                </div>
+            `;
+            document.getElementById("chat").appendChild(li);
+            document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById("msgInput");
+            if (input.value.trim()) {
+                socket.send(JSON.stringify({
+                    message: input.value
+                }));
+                input.value = "";  // Clear input after sending
+            }
+        }
+    </script>
+
+</body>
+</html>

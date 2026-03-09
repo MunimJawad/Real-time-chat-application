@@ -1,0 +1,63 @@
+from django.shortcuts import render,get_object_or_404
+from django.http import JsonResponse,HttpResponse
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from .models import Room,Message,Product,Order
+
+
+def home(request):
+    return HttpResponse("Hello World")
+
+
+def live_page(request):
+    return render(request, "myapp/live.html")
+
+def room_list(request):
+    user = request.user
+    rooms = Room.objects.filter(users = user)
+    
+    return render(request, 'myapp/rooms.html',
+                  {
+                      "rooms": rooms
+                  })
+
+def chat_room(request, room_name):
+    room = get_object_or_404(Room, name=room_name)
+
+    if request.user not in room.users.all():
+        return HttpResponse("Unauthorized")
+    
+    messages = Message.objects.filter(room=room)
+
+    return render(request, 'myapp/chat.html', {
+        "room": room,
+        "messages": messages,
+        "current_user": request.user  # Pass the current logged-in user
+    })
+
+def product_list(request):
+    products = Product.objects.all()
+
+    return render(request, "myapp/product_list.html",{"products": products})
+
+
+def product_detail(request,pk):
+    product = Product.objects.get(id=pk)
+
+    return render(request, "myapp/product_detail.html", {"product":product})
+
+import json
+from django.http import JsonResponse
+
+def create_order(request):
+    data = json.loads(request.body)
+    product_id = data["product_id"]
+    quantity = data["quantity"]
+    
+    product = get_object_or_404(Product, id=product_id)
+
+    Order.objects.create(product= product, quantity=quantity)
+
+    return JsonResponse({"status": "Order created"})
+    
+    
