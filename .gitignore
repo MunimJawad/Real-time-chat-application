@@ -1,3 +1,7 @@
+# Ignore folders
+cloudflare/
+Important/
+
 # Virtual environments
 venv/
 
@@ -20,6 +24,3 @@ staticfiles/
 # OS files
 .DS_Store
 Thumbs.db
-
-cloudflare/
-Important/

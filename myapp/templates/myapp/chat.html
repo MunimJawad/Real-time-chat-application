@@ -162,7 +162,7 @@
     </footer>
 
     <script>
-        const socket = new WebSocket(`wss://${window.location.host}/ws/chat/{{ room.name }}/`)
+        const socket = new WebSocket(`ws://${window.location.host}/ws/chat/{{ room.name }}/`)
 
         socket.onopen = () => console.log("✅ Connected")
         socket.onclose = () => console.log("❌ Disconnected")
