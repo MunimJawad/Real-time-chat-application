@@ -13,19 +13,21 @@ class Message(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['timestamp']
+        indexes=[
+            models.Index(fields=['room','timestamp']),
+            models.Index(fields=['is_read'])
+        ]
 
-class Product(models.Model):
-    name = models.CharField(max_length=100)
-    price = models.IntegerField(max_length=20)
-    stock = models.PositiveIntegerField(max_length=20)
+class UserPresence(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    is_online = models.BooleanField(default=False)
+    last_seen = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.name}"
-    
-class Order(models.Model):
-    product = models.ForeignKey(Product,related_name='orders', on_delete=models.CASCADE)
-    quantity = models.IntegerField(max_length=20)
-    created_at = models.DateTimeField(auto_now_add=True)
+        return f"{self.user.username} - {'Online' if self.is_online else 'Offline'}"
+

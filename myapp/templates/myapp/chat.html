@@ -130,18 +130,30 @@
             font-size: 14px;
             color: #888;
         }
+
+        .online {
+    color: green;
+    font-weight: bold;
+}
+
+.offline {
+    color: gray;
+}
     </style>
 </head>
 <body>
 
+    <div>
     <h2>Room: ----{{ room.id }} ----- {{ room.name }} ----({{ messages.count }})</h2>
+    <p id="typing-indicator"></p>
+    </div>
 
     <!-- Chat Messages -->
     <ul id="chat">
         {% for message in messages %}
         <li class="{% if message.user.username == current_user.username %}user{% else %}other{% endif %}">
             <div class="message">
-                <strong class="username">{{ message.user.username }}</strong>
+                <strong class="username">{{ message.user.username }} {% if online_status and message.user == current_user %}(Online) {% else %}(Offline){% endif %}</strong>
                 <small class="timestamp">-- {{ message.timestamp }}</small>
                 <p>{{ message.content }}</p>
             </div>
@@ -162,23 +174,81 @@
     </footer>
 
     <script>
-        const socket = new WebSocket(`ws://${window.location.host}/ws/chat/{{ room.name }}/`)
+        // const socket = new WebSocket(`ws://${window.location.host}/ws/chat/{{ room.name }}/`)
+// 
+        // socket.onopen = () => console.log("✅ Connected")
+        // socket.onclose = () => console.log("❌ Disconnected")
 
-        socket.onopen = () => console.log("✅ Connected")
-        socket.onclose = () => console.log("❌ Disconnected")
+        let socket;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        function connectSocket(){
+          socket = new WebSocket(`ws://${window.location.host}/ws/chat/{{ room.name }}/`)
+
+          socket.onopen = () => {
+            console.log("✅ Connected")
+            retryCount = 0; // Reset retry count on successful connection
+          }
+          
+          socket.onclose = () => {
+            handleSocketClose();
+          }
+
+
         socket.onerror = (e) => console.error("❌ WS Error", e)
  
         socket.onmessage = function(e) {
             const data = JSON.parse(e.data);
+
+            if (data.message_id){
+                console.log("Received data:", data.message_id);
+            }            
+
+            if(data.typing){
+                document.getElementById("typing-indicator").textContent = `${data.typing} is typing...`;
+                setTimeout(() => {
+                    document.getElementById("typing-indicator").textContent = '';
+                }, 2000);
+                return;
+            }
+
+            displayMessage(data);
+
+           
+        }
+
+        }
+
+        connectSocket()
+
+        //connection logic with retry mechanism
+
+        function handleSocketClose(){
+            if (retryCount < maxRetries){
+                retryCount++;
+                console.log(`WebSocket closed. Attempting to reconnect... (${retryCount + 1}/${maxRetries})`);
+                setTimeout(connectSocket, 2000); // Retry after 2 seconds
+               
+            }else{
+                console.error("Max retries reached. Could not reconnect to WebSocket.");
+            }
+        }
+
+        function displayMessage(data){
+
+            const status = data.online_status ? 'online' : 'offline';
             const li = document.createElement("li");
             li.classList.add(data.user === '{{ current_user.username }}' ? 'user' : 'other');
+
             li.innerHTML = `
                 <div class="message">
-                    <strong class="username">${data.user}</strong>
+                    <strong class="username">${data.user}</strong> <span class="${status}"> ${data.online_status ? '(Online)' : '(Offline)'}</span>
                     <small class="timestamp">-- ${data.timestamp}</small>
                     <p>${data.message}</p>
                 </div>
             `;
+
             document.getElementById("chat").appendChild(li);
             document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
         }
@@ -186,12 +256,28 @@
         function sendMessage() {
             const input = document.getElementById("msgInput");
             if (input.value.trim()) {
+                if (socket.readyState === WebSocket.OPEN){
                 socket.send(JSON.stringify({
                     message: input.value
                 }));
                 input.value = "";  // Clear input after sending
+                }else{
+                    alert("WebSocket connection is not open. Please try again later.");
+                }
             }
         }
+        
+        const input = document.getElementById("msgInput");
+        input.addEventListener("input",()=>{
+            if(socket.readyState === WebSocket.OPEN){
+                socket.send(JSON.stringify({
+                    "type": "typing"
+                }))
+            }else{
+                console.warn("WebSocket connection is not open. Cannot send typing indicator.");
+            }
+        })
+        
     </script>
 
 </body>

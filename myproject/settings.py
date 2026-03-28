@@ -15,14 +15,15 @@ SECRET_KEY = 'django-insecure-s$rgt(ds!pv1#t&^f&83tj6d1z46+w!1@qt#efn*crpp+=-uud
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "http://0.0.0.0:8000/"
-    ".munimjawad.me",  # For any subdomain of munimjawad.me
-    "app.munimjawad.me",  # Your specific subdomain
-]
+# ALLOWED_HOSTS = [
+    # "localhost",
+    # "127.0.0.1",
+    # "http://0.0.0.0:8000/"
+    # ".munimjawad.me",  # For any subdomain of munimjawad.me
+    # "app.munimjawad.me",  # Your specific subdomain
+# ]
 
+ALLOWED_HOSTS = ["*"]  # Allow all hosts (not recommended for production)
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.munimjawad.me",

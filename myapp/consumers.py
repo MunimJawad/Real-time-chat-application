@@ -1,27 +1,8 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 from channels.db import database_sync_to_async
-from .models import Room, Message,Product,Order
+from .models import Room, Message,Product,Order, UserPresence
 import datetime
-
-class LiveMessageConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        print("Websocket connected")
-        await self.accept()
-
-    async def receive(self, text_data):
-        data = json.loads(text_data)
-        message = data.get("message")
-        message = message + " Munim"
-
-        await self.send(json.dumps({
-            "message" : f"Typed: {message}"
-        }))
-
-
-    async def disconnect(self, close_code):
-        print("❌ WebSocket disconnected")
-
 
 class ChatConsumer(AsyncWebsocketConsumer):
     
@@ -36,6 +17,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         
+        await database_sync_to_async(UserPresence.objects.update_or_create)(
+            user=self.user,
+            defaults={"is_online": True, "last_seen": datetime.datetime.now()}
+        )
+        
         await self.accept()
         
         self.room = await self.get_room()
@@ -49,9 +35,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         messages = await self.get_last_messages()
 
         for msg in reversed(messages):
+           presence = getattr(msg.user, "userpresence", None)
            await self.send(text_data=json.dumps({
               "user": msg.user.username,
               "message": msg.content,
+              "online_status": presence.is_online if presence else False,
              "timestamp": msg.timestamp.isoformat()
            }))
         
@@ -61,44 +49,75 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
        
-
+    from django.utils import timezone
     async def disconnect(self, code):
+        user = self.scope["user"]
         await self.channel_layer.group_discard(
             self.room_group,
             self.channel_name
         )
+        await database_sync_to_async(UserPresence.objects.filter(user=user).update)(
+            is_online=False,
+            last_seen = self.timezone.now()
+        )
+
 
     async def receive(self, text_data = None):
         try:
           data = json.loads(text_data)
         except json.JSONDecodeError:
           return
+        
+        #Handle typing indicator
+        msg_typing = data.get("type")
+        if msg_typing == "typing":
+            await self.channel_layer.group_send(
+                self.room_group,
+                {
+                    "type":"typing_indicator",
+                    "user": self.user.username
+                }
+            )
+            return
+        
+        #normal chat message
         message = data.get("message", "").strip()
 
         if not message:
           return
 
-        await self.save_message(message)
+        message = await self.save_message(message)
         
-
+        presence = await database_sync_to_async(UserPresence.objects.filter(user=self.user).first)()
         from django.utils.timezone import now
 
         await self.channel_layer.group_send(
             self.room_group,
             {
                 "type": "chat_message",
-                "message": message,
+                "message": message.content,
+                "message_id": message.id,
+                "online_status": presence.is_online if presence else False,
                 "user": self.user.username,
                 "timestamp": now().isoformat(),
                 
             }
         )
 
+    async def typing_indicator(self,event):
+        if event["user"] == self.user.username:
+          return  # don't show your own typing
+        await self.send(text_data=json.dumps({
+            "typing": event["user"]
+        }))    
+
     async def chat_message(self,event):
         await self.send(text_data=json.dumps({
             "message": event["message"],
+            'message_id': event["message_id"],
             "user" : event["user"],
-            "timestamp": event["timestamp"]
+            "timestamp": event["timestamp"],
+            "online_status": event["online_status"]
         }))
     
     @database_sync_to_async
@@ -113,103 +132,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def get_last_messages(self):
        return list(
           Message.objects.filter(room=self.room)
-          .select_related("user").order_by('-timestamp')[:50]
+          .select_related("user", "user__userpresence").order_by('-timestamp')[:50]
        )
        
     
     @database_sync_to_async
     def save_message(self, message):
-        Message.objects.create(room = self.room,
+        message = Message.objects.create(room = self.room,
                                user = self.user,
                                content = message)
+        
+        return message
     
 
-
-from django.db import transaction
-
-class ProductConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        self.product_id = self.scope["url_route"]["kwargs"]["product_id"]
-        self.product_group = f"product_{self.product_id}"
-
-        await self.channel_layer.group_add(
-            self.product_group,
-            self.channel_name
-        )
-        await self.accept()
-
-    async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(
-            self.product_group,
-            self.channel_name
-        )
-
-    async def receive(self, text_data):
-        data = json.loads(text_data)
-        qty = int(data.get("quantity", 1))
-
-        try:
-            stock = await self.create_order(qty)
-            await self.channel_layer.group_send(
-                self.product_group,
-                {
-                    "type": "stock_update",
-                    "stock": stock
-                }
-            )
-        except ValueError as e:
-            await self.send(text_data=json.dumps({
-                "type": "error",
-                "message": str(e)
-            }))
-
-    @database_sync_to_async
-    def create_order(self, qty):
-        with transaction.atomic():
-            product = Product.objects.select_for_update().get(id=self.product_id)
-
-            if product.stock < qty:
-                raise ValueError("Not enough stock")
-
-            product.stock -= qty
-            product.save(update_fields=["stock"])
-
-            Order.objects.create(
-                product=product,
-                quantity=qty
-            )
-
-            return product.stock
-
-    async def stock_update(self, event):
-        await self.send(text_data=json.dumps({
-            "type": "stock_update",
-            "stock": event["stock"]
-        }))
-      
-
-
-class StockConsumer(AsyncWebsocketConsumer):
-
-    async def connect(self):
-        await self.channel_layer.group_add(
-            "stock_updates",
-            self.channel_name
-        )
-
-        await self.accept()
-
-    async def disconnect(self, code):
-        await self.channel_layer.group_discard(
-            "stock_updates",
-            self.channel_name
-        )
-
-    async def stock_update(self, event):
-        await self.send(text_data=json.dumps({
-            "product_id": event["product_id"],
-            "stock": event["stock"]
-        }))
-      
-   
 
