@@ -40,7 +40,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
               "user": msg.user.username,
               "message": msg.content,
               "online_status": presence.is_online if presence else False,
-             "timestamp": msg.timestamp.isoformat()
+              "timestamp": msg.timestamp.isoformat()
            }))
         
         await self.channel_layer.group_add(

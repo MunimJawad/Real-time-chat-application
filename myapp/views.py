@@ -4,12 +4,8 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .models import Room,Message, UserPresence
 
-
 def home(request):
     return HttpResponse("Hello World")
-
-
-
 
 def room_list(request):
     user = request.user
