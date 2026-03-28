@@ -2,7 +2,7 @@ from django.shortcuts import render,get_object_or_404
 from django.http import JsonResponse,HttpResponse
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from .models import Room,Message,Product,Order, UserPresence
+from .models import Room,Message, UserPresence
 
 
 def home(request):
