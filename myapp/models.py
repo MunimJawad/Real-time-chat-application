@@ -1,16 +1,16 @@
 from django.db import models
-from django.contrib.auth.models import User
-
+from django.contrib.auth.models import AbstractUser
+from django.conf import settings
 class Room(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    users = models.ManyToManyField(User, related_name="rooms")
+    users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="rooms")
 
     def __str__(self):
         return self.name
     
 class Message(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
@@ -24,7 +24,7 @@ class Message(models.Model):
         ]
 
 class UserPresence(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     is_online = models.BooleanField(default=False)
     last_seen = models.DateTimeField(null=True, blank=True)
 

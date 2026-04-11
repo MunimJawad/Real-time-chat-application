@@ -1,0 +1,3 @@
+Date : 10-04-2026
+1. Project cloning and installation Done.
+2. Design the system Done.
