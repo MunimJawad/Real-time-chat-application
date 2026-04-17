@@ -1,4 +1,3 @@
-<!-- templates/base_logged_in.html -->
 {% extends "base_global.html" %}
 
 {% block content %}
@@ -8,12 +7,38 @@
         <ul>
             <li><a href="/dashboard/">Dashboard</a></li>
             <li><a href="/profile/">Profile</a></li>
-            <li><a href="/logout/">Logout</a></li>
+            <li>
+                <form method="POST" action="{% url 'logout_page' %}">
+                    {% csrf_token %}
+                    <button type="submit">Logout</button>
+                </form>
+            </li>
         </ul>
     </aside>
 
     <section class="main-content">
-        {% block dashboard_content %}{% endblock %}
+
+        <!-- ✅ Flash Messages -->
+        {% if messages %}
+            <div class="mb-4 space-y-2">
+                {% for message in messages %}
+                    <div class="px-4 py-3 rounded-lg text-white
+                        {% if message.tags == 'success' %} bg-green-500
+                        {% elif message.tags == 'error' %} bg-red-500
+                        {% elif message.tags == 'warning' %} bg-yellow-500
+                        {% else %} bg-blue-500
+                        {% endif %}">
+                        
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <!-- 🔥 THIS IS WHAT YOU’RE MISSING -->
+        {% block dashboard_content %}
+        {% endblock %}
+
     </section>
 
 </div>
