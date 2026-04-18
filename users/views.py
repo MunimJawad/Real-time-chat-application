@@ -37,9 +37,9 @@ def login_view(request):
             user.is_online = True
             user.last_seen = timezone.now()
             user.save(update_fields=["is_online", "last_seen"])
-
-            auth_login(request, user)
             
+            auth_login(request, user)
+            request.session["name"] = request.user.username
             return redirect("home")
         
         else:
@@ -62,4 +62,7 @@ def logout_view(request):
         
 @login_required
 def home(request):
+    username = request.session.get('name')
+    print(username)
     return render(request, "users/home.html")
+
